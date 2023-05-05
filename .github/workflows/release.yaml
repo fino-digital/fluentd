@@ -28,4 +28,5 @@ jobs:
         with:
           context: .
           load: true
+          push: true
           tags: ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
