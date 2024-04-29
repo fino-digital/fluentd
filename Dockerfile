@@ -1,4 +1,4 @@
-FROM docker.io/bitnami/fluentd:1.16.5-debian-12-r1
+FROM docker.io/bitnami/fluentd:1.16.5-debian-12-r3
 ARG ES_VERSION=7.13.3
 USER 0
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -12,6 +12,7 @@ RUN gem install elasticsearch -v ${ES_VERSION} \
   && gem install elasticsearch-api -v ${ES_VERSION} \
   && gem install elasticsearch-transport -v ${ES_VERSION} \
   && gem install elasticsearch-xpack -v ${ES_VERSION} \
+  && gem install fluent-plugin-anonymizer -v 1.0.0 \
   && gem install fluent-plugin-elasticsearch -v 4.3.3 \
   && gem install fluent-plugin-rewrite-tag-filter \
   && gem install fluent-plugin-multi-format-parser
