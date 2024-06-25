@@ -1,8 +1,9 @@
-FROM docker.io/bitnami/fluentd:1.16.5-debian-12-r3
+FROM docker.io/bitnami/fluentd:1.17.0-debian-12-r4
 ARG ES_VERSION=7.13.3
 USER 0
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN gem uninstall elasticsearch --force -x \
+RUN gem update --system 3.5.14 \
+  && gem uninstall elasticsearch --force -x \
   && gem uninstall elasticsearch-api --force -x\
   && gem uninstall elastic-transport --force -x \
   && gem uninstall elasticsearch-xpack --force -x \ 
