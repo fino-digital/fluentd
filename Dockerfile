@@ -1,4 +1,4 @@
-FROM docker.io/bitnami/fluentd:1.17.0-debian-12-r4
+FROM docker.io/bitnamilegacy/fluentd:1.17.1-debian-12-r6
 ARG ES_VERSION=7.13.3
 USER 0
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
