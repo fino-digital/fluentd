@@ -6,6 +6,7 @@ USER 0
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt-get update \
+  && apt-get upgrade -y --no-install-recommends \
   && apt-get install -y --no-install-recommends build-essential libffi-dev libssl-dev \
   && gem install elasticsearch -v ${ES_VERSION} \
   && gem install elasticsearch-api -v ${ES_VERSION} \
