@@ -8,6 +8,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
   && apt-get upgrade -y --no-install-recommends \
   && apt-get install -y --no-install-recommends build-essential libffi-dev libssl-dev \
+  && gem update erb net-imap rdoc rexml cgi \
   && gem install elasticsearch -v ${ES_VERSION} \
   && gem install elasticsearch-api -v ${ES_VERSION} \
   && gem install elasticsearch-transport -v ${ES_VERSION} \
