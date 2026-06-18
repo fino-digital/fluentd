@@ -65,7 +65,8 @@ RUN mkdir -p /opt/bitnami/fluentd/conf /opt/bitnami/fluentd/logs/buffers \
 # Show the installed plugin/es gems, confirm the fixed erb still loads, and that
 # net-imap is gone (fail the build if it lingers).
 RUN gem list | grep -E 'elastic|fluent-plugin' \
-  && ruby -e "require 'erb'; puts 'erb ' + ERB::VERSION" \
+  && gem list -e erb \
+  && ruby -e "require 'erb'; ERB.new('ok')" \
   && { gem list -e net-imap | grep -qi '^net-imap ' && { echo "ERROR: net-imap still present"; exit 1; } || echo "net-imap removed"; } \
   && { ruby -e "require 'net/imap'" 2>/dev/null && { echo "ERROR: net/imap still loadable"; exit 1; } || echo "net/imap not loadable"; }
 
