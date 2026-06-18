@@ -48,7 +48,9 @@ RUN apt-get update \
 #   does IMAP, and it is a recurring CVE source, so dropping it shrinks surface.
 RUN DEFAULT_SPECS="$(ruby -e 'print Gem.default_specifications_dir')" \
   && RUBYLIB_DIR="$(ruby -e 'print RbConfig::CONFIG["rubylibdir"]')" \
-  && rm -f "$DEFAULT_SPECS"/erb-*.gemspec "$DEFAULT_SPECS"/net-imap-*.gemspec \
+  && rm -f "$DEFAULT_SPECS"/erb-*.gemspec \
+  && { gem uninstall -aIx --force net-imap 2>/dev/null || true; } \
+  && for d in $(ruby -e 'puts Gem::Specification.dirs'); do rm -f "$d"/net-imap-*.gemspec; done \
   && rm -rf "$RUBYLIB_DIR"/net/imap.rb "$RUBYLIB_DIR"/net/imap
 
 # Keep the /opt/bitnami directory layout so this image is a drop-in for the
