@@ -1,9 +1,13 @@
 # Custom Fluentd image for fino, shipping logs to Sematext.
 # Base: upstream, maintained fluent/fluentd (we left the now-frozen
-# bitnamilegacy/fluentd base). apt-get upgrade + the gem refresh below pull the
-# latest Debian and Ruby stdlib CVE fixes at build time, so a plain rebuild
-# (re-tag) picks up security patches without a base bump.
-FROM fluent/fluentd:v1.19-debian-2
+# bitnamilegacy/fluentd base). Pinned by digest for reproducibility; apt-get
+# upgrade still pulls the latest Debian CVE fixes at build time. Bump the digest
+# (and the gem pins below) by rebuilding against a newer base periodically.
+FROM fluent/fluentd:v1.19-debian-2@sha256:2d24ed0601b054e88df77a850ed9bc5a35fab3a58a6a7d7aa70258ee51037050
+
+LABEL org.opencontainers.image.source="https://github.com/fino-digital/fluentd" \
+      org.opencontainers.image.description="fino custom Fluentd (Sematext output) on upstream fluent/fluentd" \
+      org.opencontainers.image.licenses="Apache-2.0"
 
 # elasticsearch (client) and fluent-plugin-elasticsearch are intentionally
 # pinned: these versions are known to talk to the Sematext logsene receiver
@@ -15,22 +19,30 @@ ARG ES_VERSION=7.13.3
 USER 0
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# All gems are pinned for reproducible builds. The bundled Ruby gems below are
+# pinned to their current CVE-fixed releases; bump them on a rebuild when new
+# fixes land. net-imap is removed outright: nothing in our pipeline does IMAP,
+# and it is a recurring CVE source, so dropping it shrinks the attack surface.
 RUN apt-get update \
   && apt-get upgrade -y --no-install-recommends \
   && apt-get install -y --no-install-recommends build-essential libffi-dev libssl-dev \
-  && gem update erb net-imap rdoc rexml cgi \
+  && gem install erb -v 6.0.4 \
+  && gem install rdoc -v 7.2.0 \
+  && gem install rexml -v 3.4.4 \
+  && gem install cgi -v 0.5.1 \
   && gem install elasticsearch -v ${ES_VERSION} \
   && gem install elasticsearch-api -v ${ES_VERSION} \
   && gem install elasticsearch-transport -v ${ES_VERSION} \
   && gem install elasticsearch-xpack -v ${ES_VERSION} \
   && gem install fluent-plugin-elasticsearch -v 4.3.3 \
-  && gem install fluent-plugin-s3 \
-  && gem install fluent-plugin-rewrite-tag-filter \
-  && gem install fluent-plugin-record-modifier \
-  && gem install fluent-plugin-concat \
-  && gem install fluent-plugin-kubernetes_metadata_filter \
-  && gem install fluent-plugin-prometheus \
-  && gem install fluent-plugin-anonymizer \
+  && gem install fluent-plugin-s3 -v 1.8.4 \
+  && gem install fluent-plugin-rewrite-tag-filter -v 2.4.0 \
+  && gem install fluent-plugin-record-modifier -v 2.2.1 \
+  && gem install fluent-plugin-concat -v 2.6.2 \
+  && gem install fluent-plugin-kubernetes_metadata_filter -v 3.8.0 \
+  && gem install fluent-plugin-prometheus -v 2.2.2 \
+  && gem install fluent-plugin-anonymizer -v 1.0.0 \
+  && { gem uninstall net-imap --all --executables --ignore-dependencies --force || true; } \
   && apt-get purge -y --auto-remove build-essential libffi-dev libssl-dev \
   && rm -rf /var/lib/apt/lists/* /usr/local/bundle/cache/*
 
@@ -45,6 +57,8 @@ RUN mkdir -p /opt/bitnami/fluentd/conf /opt/bitnami/fluentd/logs/buffers \
   && ln -s /opt/bitnami/fluentd/conf /fluentd/etc \
   && chown -R fluent:fluent /opt/bitnami /fluentd
 
-RUN gem list | grep -E 'elastic|fluent-plugin'
+# Show the installed plugin/es gems and confirm net-imap is gone.
+RUN gem list | grep -E 'elastic|fluent-plugin' \
+  && { gem list | grep -qi '^net-imap ' && echo "WARNING: net-imap still present" || echo "net-imap removed"; }
 
 USER 1001
