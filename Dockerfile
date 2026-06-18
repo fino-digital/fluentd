@@ -19,17 +19,11 @@ ARG ES_VERSION=7.13.3
 USER 0
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# All gems are pinned for reproducible builds. The bundled Ruby gems below are
-# pinned to their current CVE-fixed releases; bump them on a rebuild when new
-# fixes land. net-imap is removed outright: nothing in our pipeline does IMAP,
-# and it is a recurring CVE source, so dropping it shrinks the attack surface.
+# All gems are pinned for reproducible builds.
 RUN apt-get update \
   && apt-get upgrade -y --no-install-recommends \
   && apt-get install -y --no-install-recommends build-essential libffi-dev libssl-dev \
   && gem install erb -v 6.0.4 \
-  && gem install rdoc -v 7.2.0 \
-  && gem install rexml -v 3.4.4 \
-  && gem install cgi -v 0.5.1 \
   && gem install elasticsearch -v ${ES_VERSION} \
   && gem install elasticsearch-api -v ${ES_VERSION} \
   && gem install elasticsearch-transport -v ${ES_VERSION} \
@@ -42,9 +36,20 @@ RUN apt-get update \
   && gem install fluent-plugin-kubernetes_metadata_filter -v 3.8.0 \
   && gem install fluent-plugin-prometheus -v 2.2.2 \
   && gem install fluent-plugin-anonymizer -v 1.0.0 \
-  && { gem uninstall net-imap --all --executables --ignore-dependencies --force || true; } \
   && apt-get purge -y --auto-remove build-essential libffi-dev libssl-dev \
   && rm -rf /var/lib/apt/lists/* /usr/local/bundle/cache/*
+
+# erb and net-imap are Ruby *default* gems baked into the base: gem install /
+# gem uninstall leaves the original default gemspec on disk, so scanners (and
+# Ruby) still see the vulnerable version. Drop the default specs explicitly.
+# - erb: keep it (fluentd needs it) but force the installed, CVE-fixed 6.0.4 by
+#   removing the vulnerable default gemspec.
+# - net-imap: remove it entirely (default gemspec + lib). Nothing in our pipeline
+#   does IMAP, and it is a recurring CVE source, so dropping it shrinks surface.
+RUN DEFAULT_SPECS="$(ruby -e 'print Gem.default_specifications_dir')" \
+  && RUBYLIB_DIR="$(ruby -e 'print RbConfig::CONFIG["rubylibdir"]')" \
+  && rm -f "$DEFAULT_SPECS"/erb-*.gemspec "$DEFAULT_SPECS"/net-imap-*.gemspec \
+  && rm -rf "$RUBYLIB_DIR"/net/imap.rb "$RUBYLIB_DIR"/net/imap
 
 # Keep the /opt/bitnami directory layout so this image is a drop-in for the
 # deployment that replaced the Bitnami chart: the vendored manifests still
@@ -57,8 +62,11 @@ RUN mkdir -p /opt/bitnami/fluentd/conf /opt/bitnami/fluentd/logs/buffers \
   && ln -s /opt/bitnami/fluentd/conf /fluentd/etc \
   && chown -R fluent:fluent /opt/bitnami /fluentd
 
-# Show the installed plugin/es gems and confirm net-imap is gone.
+# Show the installed plugin/es gems, confirm the fixed erb still loads, and that
+# net-imap is gone (fail the build if it lingers).
 RUN gem list | grep -E 'elastic|fluent-plugin' \
-  && { gem list | grep -qi '^net-imap ' && echo "WARNING: net-imap still present" || echo "net-imap removed"; }
+  && ruby -e "require 'erb'; puts 'erb ' + ERB::VERSION" \
+  && { gem list -e net-imap | grep -qi '^net-imap ' && { echo "ERROR: net-imap still present"; exit 1; } || echo "net-imap removed"; } \
+  && { ruby -e "require 'net/imap'" 2>/dev/null && { echo "ERROR: net/imap still loadable"; exit 1; } || echo "net/imap not loadable"; }
 
 USER 1001
