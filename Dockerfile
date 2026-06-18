@@ -1,5 +1,15 @@
+# Custom Fluentd image for fino, shipping logs to Sematext.
+# Base: upstream, maintained fluent/fluentd (we left the now-frozen
+# bitnamilegacy/fluentd base). apt-get upgrade + the gem refresh below pull the
+# latest Debian and Ruby stdlib CVE fixes at build time, so a plain rebuild
+# (re-tag) picks up security patches without a base bump.
 FROM fluent/fluentd:v1.19-debian-2
 
+# elasticsearch (client) and fluent-plugin-elasticsearch are intentionally
+# pinned: these versions are known to talk to the Sematext logsene receiver
+# correctly. Do NOT bump without validating ingestion against Sematext first
+# (newer fluent-plugin-elasticsearch / ES 8.x clients change the bulk API
+# handshake). If a vuln scan flags them, validate a bump on a test index.
 ARG ES_VERSION=7.13.3
 
 USER 0
@@ -24,9 +34,12 @@ RUN apt-get update \
   && apt-get purge -y --auto-remove build-essential libffi-dev libssl-dev \
   && rm -rf /var/lib/apt/lists/* /usr/local/bundle/cache/*
 
-# Match the directory layout the Bitnami Fluentd Helm chart mounts into,
-# and point the upstream entrypoint's default config dir at it so
-# `--config /fluentd/etc/${FLUENTD_CONF}` resolves into the mounted configmap.
+# Keep the /opt/bitnami directory layout so this image is a drop-in for the
+# deployment that replaced the Bitnami chart: the vendored manifests still
+# mount the config at /opt/bitnami/fluentd/conf and write buffers under
+# /opt/bitnami/fluentd/logs/buffers. The symlink makes the upstream entrypoint's
+# `fluentd -c /fluentd/etc/${FLUENTD_CONF}` resolve into the mounted configmap.
+# (Moving to a plain /fluentd layout means changing those mounts in lockstep.)
 RUN mkdir -p /opt/bitnami/fluentd/conf /opt/bitnami/fluentd/logs/buffers \
   && rm -rf /fluentd/etc \
   && ln -s /opt/bitnami/fluentd/conf /fluentd/etc \
