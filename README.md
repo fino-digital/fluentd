@@ -6,11 +6,13 @@ elasticsearch output, OTC S3, kubernetes metadata, anonymizer, etc.).
 
 ## Base image
 
-Built `FROM fluent/fluentd:v1.19-debian-2` (upstream, maintained). We moved off
-`bitnamilegacy/fluentd`, which is frozen and no longer gets CVE fixes. Each
-build runs `apt-get upgrade` (Debian CVEs) and refreshes the Ruby stdlib gems
-that tend to get CVEs (`erb net-imap rdoc rexml cgi`), so re-tagging the image
-picks up security patches without a base bump.
+Built `FROM fluent/fluentd:v1.19-debian-2`, pinned by digest (upstream,
+maintained). We moved off `bitnamilegacy/fluentd`, which is frozen and no longer
+gets CVE fixes. Each build still runs `apt-get upgrade` for Debian CVEs. All
+gems are pinned for reproducible builds; the CVE-prone bundled Ruby gems (`erb`,
+`rdoc`, `rexml`, `cgi`) are pinned to their current fixed releases, and
+`net-imap` is removed (nothing here uses IMAP, and it is a recurring CVE
+source). Bump the base digest and the gem pins on a periodic rebuild.
 
 ## Pinned elasticsearch gems
 
